@@ -11,6 +11,11 @@ config :ex_wallet,
   ecto_repos: [ExWallet.Repo],
   generators: [timestamp_type: :utc_datetime, binary_id: true]
 
+# ethereum node cfg
+config :ethereumex,
+  # url: "https://eth.llamarpc.com"
+  url: "https://eth-mainnet.public.blastapi.io"
+
 # Configures the endpoint
 config :ex_wallet, ExWalletWeb.Endpoint,
   url: [host: "localhost"],

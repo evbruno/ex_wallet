@@ -18,6 +18,11 @@ defmodule ExWalletWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+
+    live "/wallets", WalletLive.Index, :index
+    live "/wallets/new", WalletLive.Form, :new
+    live "/wallets/:id", WalletLive.Show, :show
+    live "/wallets/:id/edit", WalletLive.Form, :edit
   end
 
   # Other scopes may use custom stacks.

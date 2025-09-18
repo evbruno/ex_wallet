@@ -65,7 +65,11 @@ defmodule ExWallet.MixProject do
       {:gettext, "~> 0.26"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.2.0"},
-      {:bandit, "~> 1.5"}
+      {:bandit, "~> 1.5"},
+      {:block_keys, "~> 1.0.2"},
+      {:ethereumex, "~> 0.12.1"},
+      {:ed25519, "~> 1.4"},
+      {:b58, "~> 1.0"}
     ]
   end
 

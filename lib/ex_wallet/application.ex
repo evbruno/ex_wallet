@@ -14,6 +14,7 @@ defmodule ExWallet.Application do
        repos: Application.fetch_env!(:ex_wallet, :ecto_repos), skip: skip_migrations?()},
       {DNSCluster, query: Application.get_env(:ex_wallet, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ExWallet.PubSub},
+      {Finch, name: ExWallet.Finch},
       # Start a worker by calling: ExWallet.Worker.start_link(arg)
       # {ExWallet.Worker, arg},
       # Start to serve requests, typically the last entry
