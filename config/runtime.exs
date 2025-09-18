@@ -59,7 +59,9 @@ if config_env() == :prod do
       ip: {0, 0, 0, 0, 0, 0, 0, 0},
       port: port
     ],
-    secret_key_base: secret_key_base
+    secret_key_base: secret_key_base,
+    # FIXME: not safe for production but ok for local testing...
+    check_origin: false
 
   # ## SSL Support
   #
