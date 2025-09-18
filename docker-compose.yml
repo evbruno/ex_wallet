@@ -1,0 +1,22 @@
+services:
+  ex-wallet:
+    build:
+      context: .
+    container_name: ex-wallet
+    network_mode: host
+    environment:
+      MIX_ENV: "prod"
+      DATABASE_PATH: "/data/ex_wallet_dev_docker.db"
+      SECRET_KEY_BASE: "TkUiuRki18xWpsEn8pRSclRc4gOjs9bdJsH4iLRTLncI4XjmZY9+k64qT9JTzakz"
+    volumes:
+      - ./db_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+# volumes:
+#   exwallet-db:
+#     driver: local

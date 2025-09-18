@@ -3,6 +3,8 @@ defmodule ExWalletWeb.WalletLive.Index do
 
   alias ExWallet.Wallets
 
+  @per_page 10
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -15,6 +17,20 @@ defmodule ExWalletWeb.WalletLive.Index do
           </.button>
         </:actions>
       </.header>
+
+      <p class="text-sm text-gray-500 mb-4">
+        Total wallets: {@total} (page {@curr_page} of {@total_pages})
+      </p>
+
+      <footer>
+        <.button :if={@curr_page > 1} phx-click="paginate" phx-value-delta="-1">
+          Previous
+        </.button>
+
+        <.button :if={@curr_page < @total_pages} phx-click="paginate" phx-value-delta="+1">
+          Next
+        </.button>
+      </footer>
 
       <.table
         id="wallets"
@@ -64,10 +80,15 @@ defmodule ExWalletWeb.WalletLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
+    {ws, t, total_pages} = list_wallets_p()
+
     {:ok,
      socket
      |> assign(:page_title, "Listing Wallets")
-     |> stream(:wallets, list_wallets())}
+     |> assign(:total, t)
+     |> assign(:curr_page, 1)
+     |> assign(:total_pages, total_pages)
+     |> stream(:wallets, ws)}
   end
 
   @impl true
@@ -78,7 +99,42 @@ defmodule ExWalletWeb.WalletLive.Index do
     {:noreply, stream_delete(socket, :wallets, wallet)}
   end
 
+  # def handle_event("next_page", _params, socket) do
+  #   next_page = socket.assigns.curr_page + 1
+  #   {ws, t} = list_wallets_p(next_page)
+  #   total_pages = t / @per_page
+
+  #   socket =
+  #     socket
+  #     |> assign(:curr_page, next_page)
+  #     |> assign(:total, t)
+  #     |> assign(:total_pages, total_pages)
+  #     |> stream(:wallets, ws, reset: true)
+
+  #   {:noreply, socket}
+  # end
+
+  def handle_event("paginate", %{"delta" => delta} = _params, socket) do
+    next_page = socket.assigns.curr_page + String.to_integer(delta)
+    {ws, t, total_pages} = list_wallets_p(next_page)
+
+    socket =
+      socket
+      |> assign(:curr_page, next_page)
+      |> assign(:total, t)
+      |> assign(:total_pages, total_pages)
+      |> stream(:wallets, ws, reset: true)
+
+    {:noreply, socket}
+  end
+
   defp list_wallets() do
     Wallets.list_wallets()
+  end
+
+  defp list_wallets_p(page \\ 0) do
+    {ws, total} = Wallets.list_wallets_paginated(page, @per_page)
+    total_pages = :math.ceil(total / @per_page) |> trunc()
+    {ws, total, total_pages}
   end
 end

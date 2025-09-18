@@ -39,3 +39,5 @@ npm-debug.log
 *.db
 *.db-*
 
+# specialized local tests
+lib/ex_wallet/test_*.ex

@@ -9,6 +9,7 @@ defmodule ExWallet.Wallets do
 
   alias ExWallet.Wallets.Wallet
   alias ExWallet.Wallets.WalletBalance
+  alias ExWallet.BalanceService
 
   @doc """
   Returns the list of wallets.
@@ -28,6 +29,15 @@ defmodule ExWallet.Wallets do
   def list_wallets(_) do
     Repo.all(Wallet)
     |> Enum.map(fn wallet -> %{wallet | mnemonic: "***"} end)
+  end
+
+  def list_wallets_paginated(page \\ 1, per_page \\ 20) do
+    wallets =
+      Repo.all(from w in Wallet, limit: ^per_page, offset: ^((page - 1) * per_page))
+
+    total = Repo.aggregate(Wallet, :count, :id)
+
+    {wallets, total}
   end
 
   @doc """
@@ -131,7 +141,13 @@ defmodule ExWallet.Wallets do
     Wallet.changeset(wallet, attrs)
   end
 
-  def generate_mnemonic() do
+  def generate_mnemonic(_long \\ false)
+
+  def generate_mnemonic(false) do
+    BlockKeys.Mnemonic.generate_phrase(:crypto.strong_rand_bytes(16))
+  end
+
+  def generate_mnemonic(_) do
     BlockKeys.Mnemonic.generate_phrase()
   end
 
@@ -161,5 +177,23 @@ defmodule ExWallet.Wallets do
 
   defp bitcoin_address_legacy(mnemonic) do
     AddressService.bitcoin_address_legacy(mnemonic)
+  end
+
+  def load_all_balances(%Wallet{} = wallet) do
+    with {:ok, eth} <- BalanceService.ethereum_balance(wallet.eth_address),
+         {:ok, sol} <- BalanceService.solana_balance(wallet.sol_address),
+         {:ok, btc} <- BalanceService.bitcoin_balance(wallet.btc_legacy_address) do
+      {:ok,
+       %{
+         eth_balance: eth,
+         sol_balance: sol,
+         btc_legacy_balance: btc,
+         wallet_id: wallet.id
+       }}
+    else
+      {:error, reason} ->
+        IO.puts("Failed to fetch balance: #{reason}")
+        {:error, reason}
+    end
   end
 end

@@ -87,9 +87,13 @@ RUN chown nobody /app
 
 # set runner ENV
 ENV MIX_ENV="prod"
+ENV DATABASE_PATH=/data/ex_wallet_dev.db
 
 # Only copy the final release from the build stage
 COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/ex_wallet ./
+
+# Ensure /data exists and is writable
+RUN mkdir -p /data && chmod 777 /data
 
 USER nobody
 

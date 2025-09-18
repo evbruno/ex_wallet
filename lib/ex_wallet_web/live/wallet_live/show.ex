@@ -60,36 +60,25 @@ defmodule ExWalletWeb.WalletLive.Show do
 
     wallet = Wallets.get_wallet!(socket.assigns.wallet.id)
 
-    with {:ok, eth} <-
-           BalanceService.ethereum_balance(wallet.eth_address),
-         {:ok, sol} <- BalanceService.solana_balance(wallet.sol_address),
-         {:ok, btc} <- BalanceService.bitcoin_balance(wallet.btc_legacy_address) do
-      balance_params = %{
-        eth_balance: eth,
-        sol_balance: sol,
-        btc_legacy_balance: btc,
-        wallet_id: socket.assigns.wallet.id
-      }
+    case Wallets.load_all_balances(wallet) do
+      {:ok, balances} ->
+        case Wallets.create_or_update_balance(wallet, balances) do
+          {:ok, balance} ->
+            IO.puts("Balance updated: #{inspect(balance)}")
 
-      case Wallets.create_or_update_balance(wallet, balance_params) do
-        {:ok, balance} ->
-          IO.puts("Balance updated: #{inspect(balance)}")
+            {:noreply,
+             socket
+             |> assign(:wallet, Wallets.get_wallet!(socket.assigns.wallet.id))
+             |> put_flash(:info, "Balance reloaded successfully.")}
 
-          {:noreply,
-           socket
-           |> assign(:wallet, Wallets.get_wallet!(socket.assigns.wallet.id))
-           |> put_flash(:info, "Balance reloaded successfully.")}
+          {:error, _changeset} ->
+            {:noreply,
+             socket
+             |> put_flash(:error, "Failed to update balance.")}
+        end
 
-        {:error, _changeset} ->
-          {:noreply,
-           socket
-           |> put_flash(:error, "Failed to update balance.")}
-      end
-    else
       {:error, reason} ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "Failed to fetch balance: #{reason}")}
+        IO.inspect("Failed to load balances: #{reason}")
     end
   end
 

@@ -16,6 +16,7 @@ defmodule ExWallet.Application do
       {Phoenix.PubSub, name: ExWallet.PubSub},
       {Finch, name: ExWallet.Finch},
       ExWallet.SimpleCache,
+      # MyScheduler,
       # Start a worker by calling: ExWallet.Worker.start_link(arg)
       # {ExWallet.Worker, arg},
       # Start to serve requests, typically the last entry
