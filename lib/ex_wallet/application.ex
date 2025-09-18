@@ -15,6 +15,7 @@ defmodule ExWallet.Application do
       {DNSCluster, query: Application.get_env(:ex_wallet, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ExWallet.PubSub},
       {Finch, name: ExWallet.Finch},
+      ExWallet.SimpleCache,
       # Start a worker by calling: ExWallet.Worker.start_link(arg)
       # {ExWallet.Worker, arg},
       # Start to serve requests, typically the last entry
