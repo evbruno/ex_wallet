@@ -1,28 +1,18 @@
-defmodule ExWallet.AddressService do
+defmodule ExWallet.Solana do
+  alias BlockKeys.CKD
+
   def root_key(mnemonic) do
     BlockKeys.from_mnemonic(mnemonic)
   end
 
-  def ethereum_address(mnemonic) do
-    root_key = root_key(mnemonic)
-    BlockKeys.CKD.derive(root_key, "M/44'/60'/0'/0/0") |> BlockKeys.Ethereum.Address.from_xpub()
-  end
-
-  def bitcoin_address_legacy(mnemonic, index \\ "0") do
-    root_key = root_key(mnemonic)
-    path = "M/44'/0'/0'/0/#{index}"
-    xpub = BlockKeys.CKD.derive(root_key, path)
-    xpub |> BlockKeys.Bitcoin.Address.from_xpub()
-  end
-
-  def solana_address_0(mnemonic) do
+  def address_from_mnemonic_0(mnemonic, _account \\ "0") do
     root_key = root_key(mnemonic)
     path = "M/501'/0'/0'"
-    xpub = BlockKeys.CKD.derive(root_key, path, curve: :ed25519)
+    xpub = CKD.derive(root_key, path, curve: :ed25519)
     xpub |> BlockKeys.Solana.Address.from_xpub()
   end
 
-  def solana_address(mnemonic) do
+  def address_from_mnemonic(mnemonic, _account \\ "0") do
     {:ok, w} = mnemonic_to_solana_address(mnemonic)
     w
   end
@@ -90,58 +80,3 @@ defmodule ExWallet.AddressService do
     {k, c}
   end
 end
-
-# defmodule ExWallet.AddressService.BitcoinSegwith do
-#   alias BitcoinLib.Address
-#   alias BitcoinLib.Key.{PrivateKey, PublicKey}
-#   alias BitcoinLib.Key.HD.DerivationPath
-
-#   def addresss(
-#         mnemonic \\ "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
-#       ) do
-#     master_private_key = mnemonic |> PrivateKey.from_seed_phrase()
-#     IO.inspect(master_private_key, label: "master_private_key")
-#     IO.inspect(master_private_key |> PrivateKey.serialize(), label: "root key")
-
-#     master_public_key = master_private_key |> PublicKey.from_private_key()
-#     IO.inspect(master_public_key, label: "master_public_key")
-
-#     master_public_key
-#     |> Address.from_public_key(:p2pkh)
-#     |> IO.inspect(label: "master")
-
-#     {:ok, path_m44} = BitcoinLib.Key.HD.DerivationPath.parse("m/44'/0'/0'/0/0")
-
-#     # legacy address OK
-#     master_private_key
-#     |> PrivateKey.from_derivation_path!(path_m44)
-#     |> PublicKey.from_private_key()
-#     |> Address.P2PKH.from_public_key()
-#     |> IO.inspect(label: "legacy")
-
-#     # 1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA
-
-#     {:ok, path_m84} = DerivationPath.parse("m/84'/0'/0'/0/0")
-
-#     # native segwit address OK
-#     master_private_key
-#     |> PrivateKey.from_derivation_path!(path_m84)
-#     |> PublicKey.from_private_key()
-#     |> Address.Bech32.from_public_key()
-#     |> IO.inspect(label: "native segwit")
-
-#     # bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu
-
-#     {:ok, path_m49} = DerivationPath.parse("m/49'/0'/0'/0/0")
-
-#     master_private_key
-#     |> PrivateKey.from_derivation_path!(path_m49)
-#     |> PublicKey.from_private_key()
-#     |> Address.P2SH.from_public_key()
-#     |> IO.inspect(label: "nested segwit")
-
-#     # 37VucYSaXLCAsxYyAPfbSi9eh4iEcbShgf
-
-#     :ok
-#   end
-# end

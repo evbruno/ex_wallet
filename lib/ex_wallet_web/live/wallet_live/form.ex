@@ -22,7 +22,12 @@ defmodule ExWalletWeb.WalletLive.Form do
           label="Mnemonic"
           phx-blur="validate_mnemonic"
         />
-        <.button type="button" phx-click="generate_mnemonic">Generate Mnemonic</.button>
+        <.button type="button" phx-click="generate_mnemonic" phx-value-long="false">
+          Generate Mnemonic (12 words)
+        </.button>
+        <.button type="button" phx-click="generate_mnemonic" phx-value-long="true">
+          Generate Mnemonic (24 words)
+        </.button>
 
         <.input field={@form[:eth_address]} type="text" label="Ethereum address" readonly />
         <.input field={@form[:sol_address]} type="text" label="Solana address" readonly />
@@ -30,6 +35,18 @@ defmodule ExWalletWeb.WalletLive.Form do
           field={@form[:btc_legacy_address]}
           type="text"
           label="Bitcoin legacy address"
+          readonly
+        />
+        <.input
+          field={@form[:btc_nested_segwit_address]}
+          type="text"
+          label="Bitcoin nested segwit address"
+          readonly
+        />
+        <.input
+          field={@form[:btc_native_segwit_address]}
+          type="text"
+          label="Bitcoin native segwit address"
           readonly
         />
         <footer>
@@ -80,8 +97,13 @@ defmodule ExWalletWeb.WalletLive.Form do
     save_wallet(socket, socket.assigns.live_action, wallet_params)
   end
 
-  def handle_event("generate_mnemonic", _params, socket) do
-    mnemonic = Wallets.generate_mnemonic()
+  def handle_event("generate_mnemonic", %{"long" => long} = _params, socket) do
+    mnemonic =
+      case long do
+        "true" -> Wallets.generate_mnemonic(true)
+        _ -> Wallets.generate_mnemonic(false)
+      end
+
     form = socket.assigns.form
     changes = form.source.changes
     params = Map.put(changes, :mnemonic, mnemonic) |> Wallets.load_addresses()

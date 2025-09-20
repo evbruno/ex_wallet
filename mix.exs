@@ -69,7 +69,9 @@ defmodule ExWallet.MixProject do
       {:block_keys, "~> 1.0.2"},
       {:ethereumex, "~> 0.12.1"},
       {:ed25519, "~> 1.4"},
-      {:b58, "~> 1.0"}
+      {:b58, "~> 1.0"},
+      {:bitcoinlib, "~> 0.4.7"}
+      # {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
   end
 

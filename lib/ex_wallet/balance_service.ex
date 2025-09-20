@@ -2,35 +2,66 @@ defmodule ExWallet.BalanceService do
   require Logger
 
   def ethereum_balance(address) do
-    {:ok, bal_hex} = Ethereumex.HttpClient.eth_get_balance(address, "latest")
-    val = String.to_integer(String.trim_leading(bal_hex, "0x"), 16)
-    eth = val / 1.0e18
-    {:ok, eth}
+    Logger.debug("Fetching ETH balance for address #{address}")
+
+    case Ethereumex.HttpClient.eth_get_balance(address, "latest") do
+      {:ok, bal_hex} ->
+        val = String.to_integer(String.trim_leading(bal_hex, "0x"), 16)
+        eth = val / 1.0e18
+        {:ok, eth}
+
+      # avoid returning 0.0 for empty balances
+      {:error, reason} ->
+        Logger.debug("Failed to fetch ETH balance for #{address}: #{inspect(reason)}")
+        {:ok, nil}
+    end
+
+    # {:ok, bal_hex} = Ethereumex.HttpClient.eth_get_balance(address, "latest")
+    # val = String.to_integer(String.trim_leading(bal_hex, "0x"), 16)
+    # eth = val / 1.0e18
+    # {:ok, eth}
   end
 
   @btc_providers ["blockcypher", "blockchain", "blockstream", "mempool"]
-  def bitcoin_balance(address) do
-    bitcoin_balance_try(address, length(@btc_providers) * 2)
+
+  # def bitcoin_balance([address, type]) when type in [:legacy, :nested_segwit, :native_segwit] do
+  #   IO.puts("AFetching BTC balance for address #{address} of type #{type}")
+  #   bitcoin_balance_try(address, type, length(@btc_providers) * 2)
+  # end
+
+  def bitcoin_balance(address, type \\ :legacy) do
+    # IO.puts("BFetching BTC balance for address #{address} of type #{type}")
+    bitcoin_balance_try(address, type, length(@btc_providers) * 2)
   end
 
-  defp bitcoin_balance_try(_address, 0), do: {:error, "All BTC providers failed"}
+  defp bitcoin_balance_try(_address, _type, 0), do: {:error, "All BTC providers failed"}
 
-  defp bitcoin_balance_try(address, t) do
-    provider = next_btc_provider()
+  defp bitcoin_balance_try(address, type, t) do
+    provider = next_btc_provider(type)
 
     case bitcoin_balance_impl(address, provider) do
       {:ok, btc} ->
         {:ok, btc}
 
       {:error, reason} ->
-        Logger.warning("BTC provider #{provider} failed: #{reason}. Trying next provider...")
+        Logger.debug(
+          "BTC #{type} provider #{provider} failed: #{reason}. Trying next provider..."
+        )
+
         Process.sleep(500)
-        bitcoin_balance_try(address, t - 1)
+        bitcoin_balance_try(address, type, t - 1)
     end
   end
 
-  defp next_btc_provider() do
+  defp next_btc_provider(type) do
     idx = :persistent_term.get(:btc_provider_idx, 0)
+
+    idx =
+      case type do
+        :legacy -> idx
+        :nested_segwit -> rem(idx + 1, length(@btc_providers))
+        :native_segwit -> rem(idx + 2, length(@btc_providers))
+      end
 
     n_idx = rem(idx + 1, length(@btc_providers))
     :persistent_term.put(:btc_provider_idx, n_idx)
@@ -39,7 +70,7 @@ defmodule ExWallet.BalanceService do
   end
 
   def bitcoin_balance_impl(address, "blockcypher") do
-    Logger.info("Fetching BTC balance from BlockCypher for address #{address}")
+    Logger.debug("Fetching BTC balance from BlockCypher for address #{address}")
 
     url = "https://api.blockcypher.com/v1/btc/main/addrs/#{address}/balance"
     req = Finch.build(:get, url)
@@ -55,12 +86,12 @@ defmodule ExWallet.BalanceService do
         {:error, "Failed to fetch Bitcoin balance: HTTP #{status}"}
 
       {:error, reason} ->
-        {:error, "Failed to fetch Bitcoin balance: #{reason}"}
+        {:error, "Failed to fetch Bitcoin balance: #{inspect(reason)}"}
     end
   end
 
   def bitcoin_balance_impl(address, "blockchain") do
-    Logger.info("Fetching BTC balance from Blockchain for address #{address}")
+    Logger.debug("Fetching BTC balance from Blockchain for address #{address}")
 
     url = "https://blockchain.info/q/addressbalance/#{address}"
     req = Finch.build(:get, url)
@@ -72,13 +103,16 @@ defmodule ExWallet.BalanceService do
         btc = satoshis / 1.0e8
         {:ok, btc}
 
+      {:ok, %Finch.Response{status: status, body: body}} ->
+        {:error, "Failed to fetch Bitcoin balance: #{status} => #{body}"}
+
       {:error, reason} ->
         {:error, "Failed to fetch Bitcoin balance: #{reason}"}
     end
   end
 
   def bitcoin_balance_impl(address, "blockstream") do
-    Logger.info("Fetching BTC balance from Blockstream for address #{address}")
+    Logger.debug("Fetching BTC balance from Blockstream for address #{address}")
 
     url = "https://blockstream.info/api/address/#{address}"
     req = Finch.build(:get, url)
@@ -99,7 +133,7 @@ defmodule ExWallet.BalanceService do
   end
 
   def bitcoin_balance_impl(address, "mempool") do
-    Logger.info("Fetching BTC balance from Mempool for address #{address}")
+    Logger.debug("Fetching BTC balance from Mempool for address #{address}")
 
     url = "https://mempool.space/api/address/#{address}"
     req = Finch.build(:get, url)
@@ -115,7 +149,7 @@ defmodule ExWallet.BalanceService do
         {:error, "Failed to fetch Bitcoin balance: HTTP #{status}"}
 
       {:error, reason} ->
-        {:error, "Failed to fetch Bitcoin balance: #{reason}"}
+        {:error, "Failed to fetch Bitcoin balance: #{inspect(reason)}"}
     end
   end
 

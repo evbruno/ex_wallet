@@ -13,6 +13,17 @@ defmodule ExWallet.Release do
     end
   end
 
+  def migration_status do
+    load_app()
+
+    for repo <- Application.fetch_env!(@app, :ecto_repos) do
+      _ = repo.start_link(pool_size: 2)
+      path = Application.app_dir(@app, "priv/repo/migrations")
+      status = Ecto.Migrator.migrations(repo, path)
+      IO.inspect(status, label: "Migration Status")
+    end
+  end
+
   def rollback(repo, version) do
     load_app()
     {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :down, to: version))

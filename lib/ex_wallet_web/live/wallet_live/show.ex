@@ -2,7 +2,6 @@ defmodule ExWalletWeb.WalletLive.Show do
   use ExWalletWeb, :live_view
 
   alias ExWallet.Wallets
-  alias ExWallet.BalanceService
 
   @impl true
   def render(assigns) do
@@ -27,11 +26,17 @@ defmodule ExWalletWeb.WalletLive.Show do
         <:item title="Eth address">{@wallet.eth_address}</:item>
         <:item title="Sol address">{@wallet.sol_address}</:item>
         <:item title="Btc legacy address">{@wallet.btc_legacy_address}</:item>
+        <:item title="Btc nested segwit address">{@wallet.btc_nested_segwit_address}</:item>
+        <:item title="Btc native segwit address">{@wallet.btc_native_segwit_address}</:item>
       </.list>
       <.list :if={@wallet.balance}>
         <:item title="Eth balance">{@wallet.balance.eth_balance}</:item>
         <:item title="Sol balance">{@wallet.balance.sol_balance}</:item>
         <:item title="Btc legacy balance">{@wallet.balance.btc_legacy_balance}</:item>
+        <:item title="Btc nested segwit balance">{@wallet.balance.btc_nested_segwit_balance}</:item>
+        <:item title="Btc native segwit balance">{@wallet.balance.btc_native_segwit_balance}</:item>
+      </.list>
+      <.list>
         <:item title="Inserted at">
           {Calendar.strftime(
             DateTime.from_naive!(@wallet.inserted_at, "Etc/UTC"),

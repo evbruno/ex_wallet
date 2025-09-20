@@ -1,0 +1,91 @@
+ARG ELIXIR_VERSION=1.18.4
+ARG OTP_VERSION=27.3.4.2
+ARG DEBIAN_VERSION=bullseye-20250721-slim
+ARG ALPINE_VERSION=3.19.8
+
+ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-alpine-${ALPINE_VERSION}"
+ARG RUNNER_IMAGE="alpine:${ALPINE_VERSION}"
+
+FROM ${BUILDER_IMAGE} AS builder
+
+RUN apk add --no-cache \
+  build-base \
+  git python3
+
+# prepare build dir
+WORKDIR /app
+
+# install hex + rebar
+RUN mix local.hex --force && \
+  mix local.rebar --force
+
+# set build ENV
+ENV MIX_ENV="prod"
+
+# install mix dependencies
+COPY mix.exs mix.lock ./
+RUN mix deps.get --only $MIX_ENV
+RUN mkdir config
+
+# copy compile-time config files before we compile dependencies
+# to ensure any relevant config change will trigger the dependencies
+# to be re-compiled.
+COPY config/config.exs config/${MIX_ENV}.exs config/
+
+# WARNING: building from arm64 to amd64 arch requires to disable JIT - not suitable for prod
+# ERL_AFLAGS="+JMsingle true"
+# https://github.com/elixir-lang/elixir/issues/13669#issuecomment-2178513524
+RUN ERL_AFLAGS="+JMsingle true" mix deps.compile
+
+# RUN mix assets.setup
+
+COPY priv priv
+
+COPY assets assets
+
+COPY lib lib
+
+# compile assets
+RUN mix assets.setup
+# RUN mix assets.build
+# RUN mix assets.deploy
+
+# Compile the release
+# WARNING: building from arm64 to amd64 arch requires to disable JIT - not suitable for prod
+# ERL_AFLAGS="+JMsingle true"
+RUN ERL_AFLAGS="+JMsingle true" mix compile
+
+# Changes to config/runtime.exs don't require recompiling the code
+COPY config/runtime.exs config/
+
+COPY rel rel
+RUN mix release
+
+# start a new build stage so that the final image will only contain
+# the compiled release and other runtime necessities
+FROM ${RUNNER_IMAGE}
+
+RUN apk add --update --no-cache \
+  libgcc \
+  libstdc++ \
+  ncurses-libs \
+  make \
+  curl \
+  bind-tools iputils-ping
+
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
+
+WORKDIR "/app"
+RUN chown nobody /app
+
+# set runner ENV
+ENV MIX_ENV="prod"
+
+# Only copy the final release from the build stage
+COPY --from=builder --chown=nobody:root /app/_build/${MIX_ENV}/rel/ex_wallet ./
+
+USER nobody
+
+CMD ["/app/bin/server"]

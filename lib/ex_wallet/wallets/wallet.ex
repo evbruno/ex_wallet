@@ -11,6 +11,8 @@ defmodule ExWallet.Wallets.Wallet do
     field :eth_address, :string
     field :sol_address, :string
     field :btc_legacy_address, :string
+    field :btc_nested_segwit_address, :string
+    field :btc_native_segwit_address, :string
 
     has_one :balance, ExWallet.Wallets.WalletBalance
 
@@ -20,7 +22,23 @@ defmodule ExWallet.Wallets.Wallet do
   @doc false
   def changeset(wallet, attrs) do
     wallet
-    |> cast(attrs, [:name, :mnemonic, :eth_address, :sol_address, :btc_legacy_address])
-    |> validate_required([:name, :mnemonic, :eth_address, :sol_address, :btc_legacy_address])
+    |> cast(attrs, [
+      :name,
+      :mnemonic,
+      :eth_address,
+      :sol_address,
+      :btc_legacy_address,
+      :btc_nested_segwit_address,
+      :btc_native_segwit_address
+    ])
+    |> validate_required([
+      :name,
+      :mnemonic,
+      :eth_address,
+      :sol_address,
+      :btc_legacy_address,
+      :btc_nested_segwit_address,
+      :btc_native_segwit_address
+    ])
   end
 end

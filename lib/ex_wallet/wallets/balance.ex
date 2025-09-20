@@ -8,6 +8,8 @@ defmodule ExWallet.Wallets.WalletBalance do
     field :eth_balance, :decimal
     field :sol_balance, :decimal
     field :btc_legacy_balance, :decimal
+    field :btc_nested_segwit_balance, :decimal
+    field :btc_native_segwit_balance, :decimal
     belongs_to :wallet, ExWallet.Wallets.Wallet, type: :binary_id
 
     timestamps()
@@ -15,7 +17,14 @@ defmodule ExWallet.Wallets.WalletBalance do
 
   def changeset(balance, attrs) do
     balance
-    |> cast(attrs, [:eth_balance, :sol_balance, :btc_legacy_balance, :wallet_id])
+    |> cast(attrs, [
+      :eth_balance,
+      :sol_balance,
+      :btc_legacy_balance,
+      :btc_nested_segwit_balance,
+      :btc_native_segwit_balance,
+      :wallet_id
+    ])
     |> validate_required([:wallet_id])
   end
 end

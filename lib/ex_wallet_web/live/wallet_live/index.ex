@@ -2,8 +2,9 @@ defmodule ExWalletWeb.WalletLive.Index do
   use ExWalletWeb, :live_view
 
   alias ExWallet.Wallets
+  alias ExWallet.Wallets.Wallet
 
-  @per_page 10
+  @per_page 50
 
   @impl true
   def render(assigns) do
@@ -38,25 +39,35 @@ defmodule ExWalletWeb.WalletLive.Index do
         row_click={fn {_id, wallet} -> JS.navigate(~p"/wallets/#{wallet}") end}
       >
         <:col :let={{_id, wallet}} label="Name">{wallet.name}</:col>
-        <:col :let={{_id, wallet}} label="Mnemonic">{wallet.mnemonic}</:col>
+        <:col :let={{_id, wallet}} label="Mnemonic">
+          <span title={count_words(wallet)}>
+            {render_text(wallet.mnemonic, 8)}
+          </span>
+        </:col>
         <%!-- <:col :let={{_id, wallet}} label="Eth address">{wallet.eth_address}</:col> --%>
         <:col :let={{_id, wallet}} label="Eth address">
           <span title={wallet.eth_address}>
-            {String.slice(wallet.eth_address, 0, 4)}...{String.slice(wallet.eth_address, -4, 4)}
+            {render_text(wallet.eth_address)}
           </span>
         </:col>
         <:col :let={{_id, wallet}} label="Sol address">
           <span title={wallet.sol_address}>
-            {String.slice(wallet.sol_address, 0, 4)}...{String.slice(wallet.sol_address, -4, 4)}
+            {render_text(wallet.sol_address)}
           </span>
         </:col>
-        <:col :let={{_id, wallet}} label="Btc legacy address">
+        <:col :let={{_id, wallet}} label="Btc legacy">
           <span title={wallet.btc_legacy_address}>
-            {String.slice(wallet.btc_legacy_address, 0, 4)}...{String.slice(
-              wallet.btc_legacy_address,
-              -4,
-              4
-            )}
+            {render_text(wallet.btc_legacy_address)}
+          </span>
+        </:col>
+        <:col :let={{_id, wallet}} label="Btc Native Segwit">
+          <span title={wallet.btc_native_segwit_address}>
+            {render_text(wallet.btc_native_segwit_address)}
+          </span>
+        </:col>
+        <:col :let={{_id, wallet}} label="Btc Nested Segwit">
+          <span title={wallet.btc_nested_segwit_address}>
+            {render_text(wallet.btc_nested_segwit_address)}
           </span>
         </:col>
         <:action :let={{_id, wallet}}>
@@ -76,6 +87,23 @@ defmodule ExWalletWeb.WalletLive.Index do
       </.table>
     </Layouts.app>
     """
+  end
+
+  def render_text(""), do: "N/A"
+  def render_text(nil), do: "N/A"
+  def render_text(str) when byte_size(str) <= 10, do: str
+
+  def render_text(str, delta \\ 4) do
+    String.slice(str, 0, delta) <> "..." <> String.slice(str, -delta, delta)
+  end
+
+  def count_words(%Wallet{} = wallet) do
+    x =
+      wallet.mnemonic
+      |> String.split()
+      |> length()
+
+    "#{x} words"
   end
 
   @impl true
@@ -128,9 +156,9 @@ defmodule ExWalletWeb.WalletLive.Index do
     {:noreply, socket}
   end
 
-  defp list_wallets() do
-    Wallets.list_wallets()
-  end
+  # defp list_wallets() do
+  #   Wallets.list_wallets()
+  # end
 
   defp list_wallets_p(page \\ 0) do
     {ws, total} = Wallets.list_wallets_paginated(page, @per_page)

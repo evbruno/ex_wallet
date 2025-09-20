@@ -156,7 +156,9 @@ defmodule ExWallet.Wallets do
       wallet
       | eth_address: ethereum_address(mnemonic),
         sol_address: solana_address(mnemonic),
-        btc_legacy_address: bitcoin_address_legacy(mnemonic)
+        btc_legacy_address: bitcoin_address_legacy(mnemonic),
+        btc_nested_segwit_address: bitcoin_address_nested_segwit(mnemonic),
+        btc_native_segwit_address: bitcoin_address_native_segwit(mnemonic)
     }
   end
 
@@ -165,6 +167,8 @@ defmodule ExWallet.Wallets do
     |> Map.put(:eth_address, ethereum_address(mnemonic))
     |> Map.put(:sol_address, solana_address(mnemonic))
     |> Map.put(:btc_legacy_address, bitcoin_address_legacy(mnemonic))
+    |> Map.put(:btc_nested_segwit_address, bitcoin_address_nested_segwit(mnemonic))
+    |> Map.put(:btc_native_segwit_address, bitcoin_address_native_segwit(mnemonic))
   end
 
   defp ethereum_address(mnemonic) do
@@ -179,21 +183,66 @@ defmodule ExWallet.Wallets do
     AddressService.bitcoin_address_legacy(mnemonic)
   end
 
+  defp bitcoin_address_nested_segwit(mnemonic) do
+    ExWallet.Bitcoin.NestedSegwit.address_from_mnemonic(mnemonic)
+  end
+
+  defp bitcoin_address_native_segwit(mnemonic) do
+    ExWallet.Bitcoin.NativeSegwit.address_from_mnemonic(mnemonic)
+  end
+
   def load_all_balances(%Wallet{} = wallet) do
-    with {:ok, eth} <- BalanceService.ethereum_balance(wallet.eth_address),
-         {:ok, sol} <- BalanceService.solana_balance(wallet.sol_address),
-         {:ok, btc} <- BalanceService.bitcoin_balance(wallet.btc_legacy_address) do
-      {:ok,
-       %{
-         eth_balance: eth,
-         sol_balance: sol,
-         btc_legacy_balance: btc,
-         wallet_id: wallet.id
-       }}
-    else
-      {:error, reason} ->
-        IO.puts("Failed to fetch balance: #{reason}")
-        {:error, reason}
-    end
+    # IO.puts("Loading all balances for wallet ID: #{wallet.id}")
+
+    load_all_balances_par(wallet)
+    #  |> IO.inspect(label: "Balances fetched")
+    # with {:ok, eth} <- BalanceService.ethereum_balance(wallet.eth_address),
+    #      {:ok, sol} <- BalanceService.solana_balance(wallet.sol_address),
+    #      {:ok, btc} <- BalanceService.bitcoin_balance(wallet.btc_legacy_address) do
+    #   {:ok,
+    #    %{
+    #      eth_balance: eth,
+    #      sol_balance: sol,
+    #      btc_legacy_balance: btc,
+    #      wallet_id: wallet.id
+    #    }}
+    # else
+    #   {:error, reason} ->
+    #     IO.puts("Failed to fetch balance: #{reason}")
+    #     {:error, reason}
+    # end
+  end
+
+  defdelegate eth_balance(a), to: BalanceService, as: :ethereum_balance
+  defdelegate sol_balance(a), to: BalanceService, as: :solana_balance
+  defdelegate btc_legacy_balance(a, type), to: BalanceService, as: :bitcoin_balance
+  defdelegate btc_nested_segwit_balance(a, type), to: BalanceService, as: :bitcoin_balance
+  defdelegate btc_native_segwit_balance(a, type), to: BalanceService, as: :bitcoin_balance
+
+  defp load_async(what, value) do
+    Task.async(fn ->
+      with {:ok, res} <- apply(__MODULE__, what, value) do
+        {what, res}
+      else
+        reason -> {:error, "#{what} balance error: #{inspect(reason)}"}
+      end
+    end)
+  end
+
+  def load_all_balances_par(%Wallet{} = wallet) do
+    Task.await_many(
+      [
+        load_async(:eth_balance, [wallet.eth_address]),
+        load_async(:sol_balance, [wallet.sol_address]),
+        load_async(:btc_legacy_balance, [wallet.btc_legacy_address, :legacy]),
+        load_async(:btc_nested_segwit_balance, [wallet.btc_nested_segwit_address, :nested_segwit]),
+        load_async(:btc_native_segwit_balance, [wallet.btc_native_segwit_address, :native_segwit])
+      ],
+      20_000
+    )
+    |> Enum.into(%{wallet_id: wallet.id})
+    |> then(fn r -> {:ok, r} end)
+
+    # |> IO.inspect(label: "load_all_balances_par result")
   end
 end
