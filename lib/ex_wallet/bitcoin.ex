@@ -44,6 +44,7 @@ defmodule ExWallet.Bitcoin.Legacy do
       @purpose,
       BitcoinLib.Address.P2PKH
     )
+    |> ExWallet.Bitcoin.new(:legacy)
   end
 end
 
@@ -60,6 +61,7 @@ defmodule ExWallet.Bitcoin.NativeSegwit do
       @purpose,
       BitcoinLib.Address.Bech32
     )
+    |> ExWallet.Bitcoin.new(:native_segwit)
   end
 end
 
@@ -76,5 +78,6 @@ defmodule ExWallet.Bitcoin.NestedSegwit do
       @purpose,
       BitcoinLib.Address.P2SH
     )
+    |> ExWallet.Bitcoin.new(:nested_segwit)
   end
 end

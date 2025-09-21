@@ -23,6 +23,9 @@ defmodule ExWallet.Application do
       ExWalletWeb.Endpoint
     ]
 
+    # FIXME: verify @on_load hook
+    ExWallet.BalanceService.init_providers()
+
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: ExWallet.Supervisor]

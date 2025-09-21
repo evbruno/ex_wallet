@@ -29,6 +29,10 @@ defmodule ExWalletWeb.WalletLive.Form do
           Generate Mnemonic (24 words)
         </.button>
 
+        <%!-- <.button type="button" phx-click="reload_addresses" phx-value-long="true">
+          Reload Addresses
+        </.button> --%>
+
         <.input field={@form[:eth_address]} type="text" label="Ethereum address" readonly />
         <.input field={@form[:sol_address]} type="text" label="Solana address" readonly />
         <.input
@@ -110,6 +114,17 @@ defmodule ExWalletWeb.WalletLive.Form do
     changeset = Wallets.change_wallet(socket.assigns.wallet, params)
     {:noreply, assign(socket, form: to_form(changeset))}
   end
+
+  # fixme
+  # def handle_event("reload_addresses", _params, socket) do
+  #   params = socket.assigns.wallet |> Wallets.load_addresses()
+
+  #   IO.puts("Reloading addresses based on mnemonic 3... #{inspect(params)}")
+
+  #   changeset = Wallets.change_wallet(socket.assigns.wallet, to_form(params))
+  #   {:noreply, assign(socket, form: changeset)}
+  #   # {:noreply, socket}
+  # end
 
   def handle_event("validate_mnemonic", _params, socket) do
     form = socket.assigns.form

@@ -12,15 +12,6 @@ defmodule ExWallet.SimpleCache do
     Agent.update(__MODULE__, &Map.put(&1, key, {value, :os.system_time(:second)}))
   end
 
-  # def get(key) do
-  #   Agent.get(__MODULE__, fn cache ->
-  #     case Map.get(cache, key) do
-  #       {value, ts} when :os.system_time(:second) - ts < @expiry -> value
-  #       _ -> nil
-  #     end
-  #   end)
-  # end
-
   def get_or_update(key, fun) do
     Agent.get_and_update(__MODULE__, fn cache ->
       now = :os.system_time(:second)

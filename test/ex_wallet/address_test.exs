@@ -6,30 +6,38 @@ defmodule ExWallet.AddressTest do
   test "derive Ethereum address from mnemonic" do
     address = ExWallet.Ethereum.addresss_from_mnemonic(@mnemonic)
     # expected for this mnemonic/account 0
-    assert address == "0x9858EfFD232B4033E47d90003D41EC34EcaEda94"
+    assert address.address == "0x9858EfFD232B4033E47d90003D41EC34EcaEda94"
+    assert address.balance == Decimal.new(0)
   end
 
   test "derive Solana address from mnemonic" do
     address = ExWallet.Solana.address_from_mnemonic(@mnemonic)
     # replace with actual expected
-    assert address == "HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk"
+    assert address.address == "HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk"
+    assert address.balance == Decimal.new(0)
   end
 
   test "derive Bitcoin legacy address from mnemonic" do
     address = ExWallet.Bitcoin.Legacy.address_from_mnemonic(@mnemonic)
     # expected for this mnemonic/account 0
-    assert address == "1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA"
+    assert address.address == "1LqBGSKuX5yYUonjxT5qGfpUsXKYYWeabA"
+    assert address.balance == Decimal.new(0)
+    assert address.type == :legacy
   end
 
   test "derive Bitcoin nested segwit address from mnemonic" do
     address = ExWallet.Bitcoin.NestedSegwit.address_from_mnemonic(@mnemonic)
     # replace with actual expected
-    assert address == "37VucYSaXLCAsxYyAPfbSi9eh4iEcbShgf"
+    assert address.address == "37VucYSaXLCAsxYyAPfbSi9eh4iEcbShgf"
+    assert address.balance == Decimal.new(0)
+    assert address.type == :nested_segwit
   end
 
   test "derive Bitcoin native segwit address from mnemonic" do
     address = ExWallet.Bitcoin.NativeSegwit.address_from_mnemonic(@mnemonic)
     # expected for this mnemonic/account 0
-    assert address == "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"
+    assert address.address == "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu"
+    assert address.balance == Decimal.new(0)
+    assert address.type == :native_segwit
   end
 end

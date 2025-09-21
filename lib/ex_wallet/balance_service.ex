@@ -1,75 +1,72 @@
 defmodule ExWallet.BalanceService do
+  alias ExWallet.Cycler
   require Logger
 
-  def ethereum_balance(address) do
-    Logger.debug("Fetching ETH balance for address #{address}")
+  def init_providers do
+    :ok = ExWallet.BalanceService.Bitcoin.init_providers()
+    :ok = ExWallet.BalanceService.Ethereum.init_providers()
+    # :ok = ExWallet.BalanceService.Solana.init_providers()
+    :ok
+  end
 
-    case Ethereumex.HttpClient.eth_get_balance(address, "latest") do
-      {:ok, bal_hex} ->
-        val = String.to_integer(String.trim_leading(bal_hex, "0x"), 16)
-        eth = val / 1.0e18
-        {:ok, eth}
+  defdelegate bitcoin_balance(address), to: ExWallet.BalanceService.Bitcoin, as: :balance
+  defdelegate ethereum_balance(address), to: ExWallet.BalanceService.Ethereum, as: :balance
+  defdelegate solana_balance(address), to: ExWallet.BalanceService.Solana, as: :balance
+end
 
-      # avoid returning 0.0 for empty balances
+defmodule ExWallet.BalanceService.Bitcoin do
+  require Logger
+  alias ExWallet.Cycler
+
+  def init_providers do
+    btc_providers = ["blockcypher", "blockchain", "blockstream", "mempool"]
+
+    case Cycler.start_link(:btc, btc_providers) do
+      {:ok, _pid} ->
+        :ok
+
+      {:error, {:already_started, _pid}} ->
+        Logger.debug("BTC Cycler already started")
+        :ok
+
       {:error, reason} ->
-        Logger.debug("Failed to fetch ETH balance for #{address}: #{inspect(reason)}")
-        {:ok, nil}
+        Logger.error("Failed to start BTC Cycler: #{inspect(reason)}")
+        :abort
     end
-
-    # {:ok, bal_hex} = Ethereumex.HttpClient.eth_get_balance(address, "latest")
-    # val = String.to_integer(String.trim_leading(bal_hex, "0x"), 16)
-    # eth = val / 1.0e18
-    # {:ok, eth}
   end
 
-  @btc_providers ["blockcypher", "blockchain", "blockstream", "mempool"]
+  @max_cycles 12
 
-  # def bitcoin_balance([address, type]) when type in [:legacy, :nested_segwit, :native_segwit] do
-  #   IO.puts("AFetching BTC balance for address #{address} of type #{type}")
-  #   bitcoin_balance_try(address, type, length(@btc_providers) * 2)
-  # end
+  defp next_provider, do: Cycler.next(:btc)
 
-  def bitcoin_balance(address, type \\ :legacy) do
-    # IO.puts("BFetching BTC balance for address #{address} of type #{type}")
-    bitcoin_balance_try(address, type, length(@btc_providers) * 2)
+  def balance(address) do
+    Logger.debug("Fetching BTC balance for address #{address}")
+    balance_try(address, @max_cycles)
   end
 
-  defp bitcoin_balance_try(_address, _type, 0), do: {:error, "All BTC providers failed"}
+  # let's not fail for now
+  # defp balance_try(_address, 0), do: {:error, "All BTC providers failed"}
+  defp balance_try(_address, 0) do
+    Logger.debug("All BTC providers failed")
+    {:ok, nil}
+  end
 
-  defp bitcoin_balance_try(address, type, t) do
-    provider = next_btc_provider(type)
+  defp balance_try(address, t) do
+    provider = next_provider()
 
-    case bitcoin_balance_impl(address, provider) do
+    case balance_impl(address, provider) do
       {:ok, btc} ->
         {:ok, btc}
 
       {:error, reason} ->
-        Logger.debug(
-          "BTC #{type} provider #{provider} failed: #{reason}. Trying next provider..."
-        )
+        Logger.debug("BTC provider #{provider} failed: #{reason}. Trying next provider...")
 
-        Process.sleep(500)
-        bitcoin_balance_try(address, type, t - 1)
+        Process.sleep(250)
+        balance_try(address, t - 1)
     end
   end
 
-  defp next_btc_provider(type) do
-    idx = :persistent_term.get(:btc_provider_idx, 0)
-
-    idx =
-      case type do
-        :legacy -> idx
-        :nested_segwit -> rem(idx + 1, length(@btc_providers))
-        :native_segwit -> rem(idx + 2, length(@btc_providers))
-      end
-
-    n_idx = rem(idx + 1, length(@btc_providers))
-    :persistent_term.put(:btc_provider_idx, n_idx)
-
-    Enum.at(@btc_providers, idx)
-  end
-
-  def bitcoin_balance_impl(address, "blockcypher") do
+  def balance_impl(address, "blockcypher") do
     Logger.debug("Fetching BTC balance from BlockCypher for address #{address}")
 
     url = "https://api.blockcypher.com/v1/btc/main/addrs/#{address}/balance"
@@ -82,15 +79,12 @@ defmodule ExWallet.BalanceService do
         btc = satoshis / 1.0e8
         {:ok, btc}
 
-      {:ok, %Finch.Response{status: status}} when status in 400..599 ->
-        {:error, "Failed to fetch Bitcoin balance: HTTP #{status}"}
-
       {:error, reason} ->
         {:error, "Failed to fetch Bitcoin balance: #{inspect(reason)}"}
     end
   end
 
-  def bitcoin_balance_impl(address, "blockchain") do
+  def balance_impl(address, "blockchain") do
     Logger.debug("Fetching BTC balance from Blockchain for address #{address}")
 
     url = "https://blockchain.info/q/addressbalance/#{address}"
@@ -103,15 +97,12 @@ defmodule ExWallet.BalanceService do
         btc = satoshis / 1.0e8
         {:ok, btc}
 
-      {:ok, %Finch.Response{status: status, body: body}} ->
-        {:error, "Failed to fetch Bitcoin balance: #{status} => #{body}"}
-
       {:error, reason} ->
         {:error, "Failed to fetch Bitcoin balance: #{reason}"}
     end
   end
 
-  def bitcoin_balance_impl(address, "blockstream") do
+  def balance_impl(address, "blockstream") do
     Logger.debug("Fetching BTC balance from Blockstream for address #{address}")
 
     url = "https://blockstream.info/api/address/#{address}"
@@ -124,15 +115,12 @@ defmodule ExWallet.BalanceService do
         btc = satoshis / 1.0e8
         {:ok, btc}
 
-      {:ok, %Finch.Response{status: status}} when status in 400..599 ->
-        {:error, "Failed to fetch Bitcoin balance: HTTP #{status}"}
-
       {:error, reason} ->
         {:error, "Failed to fetch Bitcoin balance: #{reason}"}
     end
   end
 
-  def bitcoin_balance_impl(address, "mempool") do
+  def balance_impl(address, "mempool") do
     Logger.debug("Fetching BTC balance from Mempool for address #{address}")
 
     url = "https://mempool.space/api/address/#{address}"
@@ -145,15 +133,126 @@ defmodule ExWallet.BalanceService do
         btc = satoshis / 1.0e8
         {:ok, btc}
 
-      {:ok, %Finch.Response{status: status}} when status in 400..599 ->
-        {:error, "Failed to fetch Bitcoin balance: HTTP #{status}"}
-
       {:error, reason} ->
         {:error, "Failed to fetch Bitcoin balance: #{inspect(reason)}"}
     end
   end
+end
 
-  def solana_balance(address) do
+defmodule ExWallet.BalanceService.Ethereum do
+  require Logger
+  alias ExWallet.Cycler
+
+  def init_providers do
+    eth_providers = ["ethereumex", "ethereum-rpc", "blockscout"]
+
+    case Cycler.start_link(:eth, eth_providers) do
+      {:ok, _pid} ->
+        :ok
+
+      {:error, {:already_started, _pid}} ->
+        Logger.debug("ETH Cycler already started")
+        :ok
+
+      {:error, reason} ->
+        Logger.error("Failed to start ETH Cycler: #{inspect(reason)}")
+        :abort
+    end
+  end
+
+  @max_cycles 6
+
+  defp next_provider, do: Cycler.next(:eth)
+
+  def balance(address) do
+    Logger.debug("Fetching ETH balance for address #{address}")
+    balance_try(address, @max_cycles)
+  end
+
+  defp balance_try(address, t) do
+    provider = next_provider()
+
+    case balance_impl(address, provider) do
+      {:ok, eth} ->
+        {:ok, eth}
+
+      {:error, reason} ->
+        Logger.debug("ETH provider #{provider} failed: #{reason}. Trying next provider...")
+
+        Process.sleep(250)
+        balance_try(address, t - 1)
+    end
+  end
+
+  defp balance_impl(address, "ethereumex") do
+    Logger.debug("Fetching ETH balance from Ethereumex for address #{address}")
+
+    case Ethereumex.HttpClient.eth_get_balance(address, "latest") do
+      {:ok, bal_hex} ->
+        val = String.to_integer(String.trim_leading(bal_hex, "0x"), 16)
+        eth = val / 1.0e18
+        {:ok, eth}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp balance_impl(address, "ethereum-rpc") do
+    Logger.debug("Fetching ETH balance from Ethereum RPC for address #{address}")
+
+    url = "https://ethereum-rpc.publicnode.com"
+
+    body =
+      %{
+        "jsonrpc" => "2.0",
+        "method" => "eth_getBalance",
+        "params" => [address, "latest"],
+        "id" => 1
+      }
+      |> Jason.encode!()
+
+    headers = [{"Content-Type", "application/json"}]
+    req = Finch.build(:post, url, headers, body)
+
+    Finch.request(req, ExWallet.Finch)
+    |> case do
+      {:ok, %Finch.Response{status: 200, body: body}} ->
+        {:ok, %{"result" => bal_hex}} = Jason.decode(body)
+        val = String.to_integer(String.trim_leading(bal_hex, "0x"), 16)
+        eth = val / 1.0e18
+        {:ok, eth}
+
+      {_, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp balance_impl(address, "blockscout") do
+    Logger.debug("Fetching ETH balance from Blockscout for address #{address}")
+
+    url = "https://eth.blockscout.com/api?module=account&action=balance&address=#{address}"
+
+    req = Finch.build(:get, url)
+
+    Finch.request(req, ExWallet.Finch)
+    |> case do
+      {:ok, %Finch.Response{status: 200, body: body}} ->
+        {:ok, %{"result" => bal_str}} = Jason.decode(body)
+        val = String.to_integer(bal_str)
+        eth = val / 1.0e18
+        {:ok, eth}
+
+      {_, reason} ->
+        {:error, reason}
+    end
+  end
+end
+
+defmodule ExWallet.BalanceService.Solana do
+  require Logger
+
+  def balance(address) do
     url = "https://api.mainnet-beta.solana.com"
 
     body = %{
@@ -173,11 +272,8 @@ defmodule ExWallet.BalanceService do
         sol = lamports / 1.0e9
         {:ok, sol}
 
-      {:ok, %Finch.Response{status: status}} when status in 400..599 ->
-        {:error, "Failed to fetch Solana balance: HTTP #{status}"}
-
-      {:error, reason} ->
-        {:error, "Failed to fetch Solana balance: #{reason}"}
+      {_, reason} ->
+        {:error, reason}
     end
   end
 end

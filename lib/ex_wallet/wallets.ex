@@ -4,7 +4,7 @@ defmodule ExWallet.Wallets do
   """
 
   import Ecto.Query, warn: false
-  alias ExWallet.AddressService
+
   alias ExWallet.Repo
 
   alias ExWallet.Wallets.Wallet
@@ -172,56 +172,39 @@ defmodule ExWallet.Wallets do
   end
 
   defp ethereum_address(mnemonic) do
-    AddressService.ethereum_address(mnemonic)
+    # AddressService.ethereum_address(mnemonic)
+    ExWallet.Ethereum.addresss_from_mnemonic(mnemonic).address
   end
 
   defp solana_address(mnemonic) do
-    AddressService.solana_address(mnemonic)
+    # AddressService.solana_address(mnemonic)
+    ExWallet.Solana.address_from_mnemonic(mnemonic).address
   end
 
   defp bitcoin_address_legacy(mnemonic) do
-    AddressService.bitcoin_address_legacy(mnemonic)
+    # AddressService.bitcoin_address_legacy(mnemonic)
+    ExWallet.Bitcoin.Legacy.address_from_mnemonic(mnemonic).address
   end
 
   defp bitcoin_address_nested_segwit(mnemonic) do
-    ExWallet.Bitcoin.NestedSegwit.address_from_mnemonic(mnemonic)
+    ExWallet.Bitcoin.NestedSegwit.address_from_mnemonic(mnemonic).address
   end
 
   defp bitcoin_address_native_segwit(mnemonic) do
-    ExWallet.Bitcoin.NativeSegwit.address_from_mnemonic(mnemonic)
+    ExWallet.Bitcoin.NativeSegwit.address_from_mnemonic(mnemonic).address
   end
 
   def load_all_balances(%Wallet{} = wallet) do
-    # IO.puts("Loading all balances for wallet ID: #{wallet.id}")
-
     load_all_balances_par(wallet)
-    #  |> IO.inspect(label: "Balances fetched")
-    # with {:ok, eth} <- BalanceService.ethereum_balance(wallet.eth_address),
-    #      {:ok, sol} <- BalanceService.solana_balance(wallet.sol_address),
-    #      {:ok, btc} <- BalanceService.bitcoin_balance(wallet.btc_legacy_address) do
-    #   {:ok,
-    #    %{
-    #      eth_balance: eth,
-    #      sol_balance: sol,
-    #      btc_legacy_balance: btc,
-    #      wallet_id: wallet.id
-    #    }}
-    # else
-    #   {:error, reason} ->
-    #     IO.puts("Failed to fetch balance: #{reason}")
-    #     {:error, reason}
-    # end
   end
 
   defdelegate eth_balance(a), to: BalanceService, as: :ethereum_balance
   defdelegate sol_balance(a), to: BalanceService, as: :solana_balance
-  defdelegate btc_legacy_balance(a, type), to: BalanceService, as: :bitcoin_balance
-  defdelegate btc_nested_segwit_balance(a, type), to: BalanceService, as: :bitcoin_balance
-  defdelegate btc_native_segwit_balance(a, type), to: BalanceService, as: :bitcoin_balance
+  defdelegate btc_balance(a), to: BalanceService, as: :bitcoin_balance
 
   defp load_async(what, value) do
     Task.async(fn ->
-      with {:ok, res} <- apply(__MODULE__, what, value) do
+      with {:ok, res} <- apply(__MODULE__, what, [value]) do
         {what, res}
       else
         reason -> {:error, "#{what} balance error: #{inspect(reason)}"}
@@ -232,17 +215,15 @@ defmodule ExWallet.Wallets do
   def load_all_balances_par(%Wallet{} = wallet) do
     Task.await_many(
       [
-        load_async(:eth_balance, [wallet.eth_address]),
-        load_async(:sol_balance, [wallet.sol_address]),
-        load_async(:btc_legacy_balance, [wallet.btc_legacy_address, :legacy]),
-        load_async(:btc_nested_segwit_balance, [wallet.btc_nested_segwit_address, :nested_segwit]),
-        load_async(:btc_native_segwit_balance, [wallet.btc_native_segwit_address, :native_segwit])
+        load_async(:eth_balance, wallet.eth_address),
+        load_async(:sol_balance, wallet.sol_address),
+        load_async(:btc_balance, wallet.btc_legacy_address),
+        load_async(:btc_balance, wallet.btc_nested_segwit_address),
+        load_async(:btc_balance, wallet.btc_native_segwit_address)
       ],
       20_000
     )
     |> Enum.into(%{wallet_id: wallet.id})
     |> then(fn r -> {:ok, r} end)
-
-    # |> IO.inspect(label: "load_all_balances_par result")
   end
 end

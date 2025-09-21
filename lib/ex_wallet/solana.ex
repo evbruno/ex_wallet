@@ -1,20 +1,25 @@
 defmodule ExWallet.Solana do
-  alias BlockKeys.CKD
+  @enforce_keys [:address]
+  defstruct [:address, :balance]
+
+  def new(address) do
+    %__MODULE__{address: address, balance: Decimal.new(0)}
+  end
 
   def root_key(mnemonic) do
     BlockKeys.from_mnemonic(mnemonic)
   end
 
-  def address_from_mnemonic_0(mnemonic, _account \\ "0") do
-    root_key = root_key(mnemonic)
-    path = "M/501'/0'/0'"
-    xpub = CKD.derive(root_key, path, curve: :ed25519)
-    xpub |> BlockKeys.Solana.Address.from_xpub()
-  end
+  # def address_from_mnemonic_0(mnemonic, _account \\ "0") do
+  #   root_key = root_key(mnemonic)
+  #   path = "M/501'/0'/0'"
+  #   xpub = CKD.derive(root_key, path, curve: :ed25519)
+  #   xpub |> BlockKeys.Solana.Address.from_xpub()
+  # end
 
   def address_from_mnemonic(mnemonic, _account \\ "0") do
     {:ok, w} = mnemonic_to_solana_address(mnemonic)
-    w
+    w |> ExWallet.Solana.new()
   end
 
   ## vibe coded
