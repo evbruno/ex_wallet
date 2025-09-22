@@ -79,7 +79,7 @@ defmodule ExWallet.BalanceService.Bitcoin do
         btc = satoshis / 1.0e8
         {:ok, btc}
 
-      {:error, reason} ->
+      {_, reason} ->
         {:error, "Failed to fetch Bitcoin balance: #{inspect(reason)}"}
     end
   end
@@ -97,7 +97,7 @@ defmodule ExWallet.BalanceService.Bitcoin do
         btc = satoshis / 1.0e8
         {:ok, btc}
 
-      {:error, reason} ->
+      {_, reason} ->
         {:error, "Failed to fetch Bitcoin balance: #{reason}"}
     end
   end
@@ -115,7 +115,7 @@ defmodule ExWallet.BalanceService.Bitcoin do
         btc = satoshis / 1.0e8
         {:ok, btc}
 
-      {:error, reason} ->
+      {_, reason} ->
         {:error, "Failed to fetch Bitcoin balance: #{reason}"}
     end
   end
@@ -133,7 +133,7 @@ defmodule ExWallet.BalanceService.Bitcoin do
         btc = satoshis / 1.0e8
         {:ok, btc}
 
-      {:error, reason} ->
+      {_, reason} ->
         {:error, "Failed to fetch Bitcoin balance: #{inspect(reason)}"}
     end
   end
@@ -193,7 +193,7 @@ defmodule ExWallet.BalanceService.Ethereum do
         eth = val / 1.0e18
         {:ok, eth}
 
-      {:error, reason} ->
+      {_, reason} ->
         {:error, reason}
     end
   end
