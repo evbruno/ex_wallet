@@ -24,12 +24,20 @@ defmodule ExWalletWeb.WalletLive.Index do
       </p>
 
       <footer>
+        <.button :if={@curr_page > 1} phx-click="paginate-jump" phx-value-page="0">
+          First
+        </.button>
+
         <.button :if={@curr_page > 1} phx-click="paginate" phx-value-delta="-1">
-          Previous
+          &lt; Previous
         </.button>
 
         <.button :if={@curr_page < @total_pages} phx-click="paginate" phx-value-delta="+1">
-          Next
+          Next &gt;
+        </.button>
+
+        <.button :if={@curr_page < @total_pages} phx-click="paginate-jump" phx-value-page="-1">
+          Last
         </.button>
       </footer>
 
@@ -144,6 +152,25 @@ defmodule ExWalletWeb.WalletLive.Index do
 
   def handle_event("paginate", %{"delta" => delta} = _params, socket) do
     next_page = socket.assigns.curr_page + String.to_integer(delta)
+    {ws, t, total_pages} = list_wallets_p(next_page)
+
+    socket =
+      socket
+      |> assign(:curr_page, next_page)
+      |> assign(:total, t)
+      |> assign(:total_pages, total_pages)
+      |> stream(:wallets, ws, reset: true)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("paginate-jump", %{"page" => page} = _params, socket) do
+    next_page =
+      case page do
+        "0" -> 0
+        _ -> socket.assigns.total_pages
+      end
+
     {ws, t, total_pages} = list_wallets_p(next_page)
 
     socket =

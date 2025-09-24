@@ -35,7 +35,7 @@ defmodule ExWallet.BalanceService.Bitcoin do
     end
   end
 
-  @max_cycles 12
+  @max_cycles 8
 
   defp next_provider, do: Cycler.next(:btc)
 
@@ -46,7 +46,7 @@ defmodule ExWallet.BalanceService.Bitcoin do
 
   # let's not fail for now
   # defp balance_try(_address, 0), do: {:error, "All BTC providers failed"}
-  defp balance_try(_address, 0) do
+  defp balance_try(_address, t) when t <= 0 do
     Logger.debug("All BTC providers failed")
     {:ok, nil}
   end
@@ -59,9 +59,11 @@ defmodule ExWallet.BalanceService.Bitcoin do
         {:ok, btc}
 
       {:error, reason} ->
-        Logger.debug("BTC provider #{provider} failed: #{reason}. Trying next provider...")
+        Logger.debug(
+          "BTC provider #{provider} failed: #{inspect(reason)}. Trying next provider..."
+        )
 
-        Process.sleep(250)
+        Process.sleep(500)
         balance_try(address, t - 1)
     end
   end
@@ -98,7 +100,7 @@ defmodule ExWallet.BalanceService.Bitcoin do
         {:ok, btc}
 
       {_, reason} ->
-        {:error, "Failed to fetch Bitcoin balance: #{reason}"}
+        {:error, "Failed to fetch Bitcoin balance: #{inspect(reason)}"}
     end
   end
 
@@ -116,7 +118,7 @@ defmodule ExWallet.BalanceService.Bitcoin do
         {:ok, btc}
 
       {_, reason} ->
-        {:error, "Failed to fetch Bitcoin balance: #{reason}"}
+        {:error, "Failed to fetch Bitcoin balance: #{inspect(reason)}"}
     end
   end
 
@@ -177,7 +179,9 @@ defmodule ExWallet.BalanceService.Ethereum do
         {:ok, eth}
 
       {:error, reason} ->
-        Logger.debug("ETH provider #{provider} failed: #{reason}. Trying next provider...")
+        Logger.debug(
+          "ETH provider #{provider} failed: #{inspect(reason)}. Trying next provider..."
+        )
 
         Process.sleep(250)
         balance_try(address, t - 1)

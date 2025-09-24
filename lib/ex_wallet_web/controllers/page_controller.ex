@@ -12,4 +12,8 @@ defmodule ExWalletWeb.PageController do
     |> assign(:sol_price, sol)
     |> render(:home)
   end
+
+  def check(conn, _params) do
+    json(conn, %{status: "ok", timestamp: DateTime.utc_now()})
+  end
 end

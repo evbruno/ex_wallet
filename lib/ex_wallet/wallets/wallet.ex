@@ -40,5 +40,6 @@ defmodule ExWallet.Wallets.Wallet do
       :btc_nested_segwit_address,
       :btc_native_segwit_address
     ])
+    |> unique_constraint(:mnemonic)
   end
 end

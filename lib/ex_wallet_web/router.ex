@@ -25,6 +25,13 @@ defmodule ExWalletWeb.Router do
     live "/wallets/:id/edit", WalletLive.Form, :edit
   end
 
+  scope "/live", ExWalletWeb, log: false do
+    pipe_through :api
+
+    get "/", PageController, :check
+    get "/check", PageController, :check
+  end
+
   # Other scopes may use custom stacks.
   # scope "/api", ExWalletWeb do
   #   pipe_through :api

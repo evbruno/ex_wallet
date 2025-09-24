@@ -3,6 +3,8 @@ defmodule ExWallet.Wallets do
   The Wallets context.
   """
 
+  require Logger
+
   import Ecto.Query, warn: false
 
   alias ExWallet.Repo
@@ -194,36 +196,62 @@ defmodule ExWallet.Wallets do
     ExWallet.Bitcoin.NativeSegwit.address_from_mnemonic(mnemonic).address
   end
 
+  # not fail the whole update if one balance fails
+  defp load_sync(what, value) do
+    with {:ok, res} <- apply(__MODULE__, what, [value]) do
+      {what, res}
+    else
+      reason ->
+        Logger.debug({"#{what} balance error: #{inspect(reason)}"})
+        {what, nil}
+    end
+  end
+
   def load_all_balances(%Wallet{} = wallet) do
-    load_all_balances_par(wallet)
+    [
+      load_sync(:eth_balance, wallet.eth_address),
+      load_sync(:sol_balance, wallet.sol_address),
+      load_sync(:btc_legacy_balance, wallet.btc_legacy_address),
+      load_sync(:btc_nested_segwit_balance, wallet.btc_nested_segwit_address),
+      load_sync(:btc_native_segwit_balance, wallet.btc_native_segwit_address)
+    ]
+    |> Enum.into(%{wallet_id: wallet.id})
+    |> then(fn r -> {:ok, r} end)
   end
 
   defdelegate eth_balance(a), to: BalanceService, as: :ethereum_balance
   defdelegate sol_balance(a), to: BalanceService, as: :solana_balance
-  defdelegate btc_balance(a), to: BalanceService, as: :bitcoin_balance
+  defdelegate btc_legacy_balance(a), to: BalanceService, as: :bitcoin_balance
+  defdelegate btc_nested_segwit_balance(a), to: BalanceService, as: :bitcoin_balance
+  defdelegate btc_native_segwit_balance(a), to: BalanceService, as: :bitcoin_balance
 
-  defp load_async(what, value) do
-    Task.async(fn ->
-      with {:ok, res} <- apply(__MODULE__, what, [value]) do
-        {what, res}
-      else
-        reason -> {:error, "#{what} balance error: #{inspect(reason)}"}
-      end
-    end)
-  end
+  # defp load_async(what, value) do
+  #   Task.async(fn ->
+  #     with {:ok, res} <- apply(__MODULE__, what, [value]) do
+  #       {what, res}
+  #     else
+  #       reason -> {:error, "#{what} balance error: #{inspect(reason)}"}
+  #     end
+  #   end)
+  # end
 
-  def load_all_balances_par(%Wallet{} = wallet) do
-    Task.await_many(
-      [
-        load_async(:eth_balance, wallet.eth_address),
-        load_async(:sol_balance, wallet.sol_address),
-        load_async(:btc_balance, wallet.btc_legacy_address),
-        load_async(:btc_balance, wallet.btc_nested_segwit_address),
-        load_async(:btc_balance, wallet.btc_native_segwit_address)
-      ],
-      20_000
-    )
-    |> Enum.into(%{wallet_id: wallet.id})
-    |> then(fn r -> {:ok, r} end)
-  end
+  # 429 => Rate limited
+  # cant use it for now
+  #   defp load_all_balances_par(%Wallet{} = wallet) do
+  #     Logger.info("Loading all balances for wallet #{wallet.id}")
+
+  #     Task.await_many(
+  #       [
+  #         load_async(:eth_balance, wallet.eth_address),
+  #         load_async(:sol_balance, wallet.sol_address),
+  #         load_async(:btc_legacy_balance, wallet.btc_legacy_address),
+  #         load_async(:btc_nested_segwit_balance, wallet.btc_nested_segwit_address),
+  #         load_async(:btc_native_segwit_balance, wallet.btc_native_segwit_address)
+  #       ],
+  #       20_000
+  #     )
+  #     |> Enum.into(%{wallet_id: wallet.id})
+  #     |> then(fn r -> {:ok, r} end)
+  #   end
+  # end
 end

@@ -40,7 +40,10 @@ defmodule ExWalletWeb.Endpoint do
     cookie_key: "request_logger"
 
   plug Plug.RequestId
-  plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
+
+  plug Plug.Telemetry,
+    event_prefix: [:phoenix, :endpoint],
+    log: {__MODULE__, :log_level, []}
 
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
@@ -51,4 +54,9 @@ defmodule ExWalletWeb.Endpoint do
   plug Plug.Head
   plug Plug.Session, @session_options
   plug ExWalletWeb.Router
+
+  # Disables logging for routes like /status/*
+  def log_level(%{path_info: ["live", "check" | _]}), do: false
+  def log_level(%{path_info: ["live" | _]}), do: false
+  def log_level(_), do: :info
 end
