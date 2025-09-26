@@ -41,7 +41,11 @@ defmodule ExWallet.BalanceService.Bitcoin do
 
   def balance(address) do
     Logger.debug("Fetching BTC balance for address #{address}")
-    balance_try(address, @max_cycles)
+
+    ExWallet.TelemetryUtils.measure(
+      [:balance_load, :btc],
+      fn -> balance_try(address, @max_cycles) end
+    )
   end
 
   # let's not fail for now
@@ -168,7 +172,11 @@ defmodule ExWallet.BalanceService.Ethereum do
 
   def balance(address) do
     Logger.debug("Fetching ETH balance for address #{address}")
-    balance_try(address, @max_cycles)
+
+    ExWallet.TelemetryUtils.measure(
+      [:balance_load, :eth],
+      fn -> balance_try(address, @max_cycles) end
+    )
   end
 
   defp balance_try(address, t) do
@@ -257,6 +265,15 @@ defmodule ExWallet.BalanceService.Solana do
   require Logger
 
   def balance(address) do
+    Logger.debug("Fetching SOL balance for address #{address}")
+
+    ExWallet.TelemetryUtils.measure(
+      [:balance_load, :sol],
+      fn -> balance_impl(address) end
+    )
+  end
+
+  defp balance_impl(address) do
     url = "https://api.mainnet-beta.solana.com"
 
     body = %{

@@ -13,6 +13,9 @@ defmodule ExWallet.Wallets do
   alias ExWallet.Wallets.WalletBalance
   alias ExWallet.BalanceService
 
+  alias BlockKeys.Mnemonic, as: BKM
+  alias BitcoinLib.Key.HD.SeedPhrase, as: BLIB
+
   @doc """
   Returns the list of wallets.
 
@@ -59,6 +62,21 @@ defmodule ExWallet.Wallets do
   def get_wallet!(id), do: Repo.get!(Wallet, id) |> Repo.preload(:balance)
 
   def get_balance(id), do: Repo.get!(WalletBalance, id)
+
+  def find_by_mnemonic(mnemonic) do
+    Repo.get_by(Wallet, mnemonic: mnemonic)
+    |> Repo.preload(:balance)
+  end
+
+  def find_by_start_mnemonic(mnemonic_start) do
+    Repo.all(from w in Wallet, where: like(w.mnemonic, ^"#{mnemonic_start}%"))
+    |> Repo.preload(:balance)
+  end
+
+  def find_by_name(name) do
+    Repo.all(from w in Wallet, where: w.name == ^name)
+    |> Repo.preload(:balance)
+  end
 
   @doc """
   Creates a wallet.
@@ -143,14 +161,35 @@ defmodule ExWallet.Wallets do
     Wallet.changeset(wallet, attrs)
   end
 
-  def generate_mnemonic(_long \\ false)
+  def generate_mnemonic(_words \\ 12)
 
-  def generate_mnemonic(false) do
-    BlockKeys.Mnemonic.generate_phrase(:crypto.strong_rand_bytes(16))
+  def generate_mnemonic(words) when words in [12, 24] do
+    method = random_impl()
+    apply(__MODULE__, method, [words])
   end
 
-  def generate_mnemonic(_) do
-    BlockKeys.Mnemonic.generate_phrase()
+  def blockeys_impl(w) do
+    rand_bytes(w) |> BKM.generate_phrase()
+  end
+
+  def bitcoinlib_impl(w) when w in [12, 24] do
+    rand_bytes(w)
+    |> :binary.decode_unsigned()
+    |> BLIB.wordlist_from_entropy()
+  end
+
+  defp rand_bytes(size) when size in [12, 24] do
+    case size do
+      12 -> :crypto.strong_rand_bytes(16)
+      24 -> :crypto.strong_rand_bytes(32)
+    end
+  end
+
+  def random_impl() do
+    case :rand.uniform(1024) |> rem(2) do
+      0 -> :blockeys_impl
+      1 -> :bitcoinlib_impl
+    end
   end
 
   def load_addresses(%Wallet{mnemonic: mnemonic} = wallet) do
@@ -208,6 +247,13 @@ defmodule ExWallet.Wallets do
   end
 
   def load_all_balances(%Wallet{} = wallet) do
+    ExWallet.TelemetryUtils.measure(
+      [:balance_load, :all],
+      fn -> load_all_balances_impl(wallet) end
+    )
+  end
+
+  defp load_all_balances_impl(wallet) do
     [
       load_sync(:eth_balance, wallet.eth_address),
       load_sync(:sol_balance, wallet.sol_address),
@@ -224,6 +270,40 @@ defmodule ExWallet.Wallets do
   defdelegate btc_legacy_balance(a), to: BalanceService, as: :bitcoin_balance
   defdelegate btc_nested_segwit_balance(a), to: BalanceService, as: :bitcoin_balance
   defdelegate btc_native_segwit_balance(a), to: BalanceService, as: :bitcoin_balance
+
+  def balance_to_usd(%WalletBalance{} = balance) do
+    eth =
+      case ExWallet.PriceService.ethereum_usd() do
+        {:ok, p} ->
+          p * (balance |> WalletBalance.eth_balance())
+
+        err ->
+          Logger.error("Error fetching ETH price: #{inspect(err)}")
+          0
+      end
+
+    btc =
+      case ExWallet.PriceService.bitcoin_usd() do
+        {:ok, p} ->
+          p * (balance |> WalletBalance.btc_balance())
+
+        err ->
+          Logger.error("Error fetching BTC price: #{inspect(err)}")
+          0
+      end
+
+    sol =
+      case ExWallet.PriceService.solana_usd() do
+        {:ok, p} ->
+          p * (balance |> WalletBalance.sol_balance())
+
+        err ->
+          Logger.error("Error fetching SOL price: #{inspect(err)}")
+          0
+      end
+
+    %{eth: eth, btc: btc, sol: sol, total: eth + btc + sol}
+  end
 
   # defp load_async(what, value) do
   #   Task.async(fn ->

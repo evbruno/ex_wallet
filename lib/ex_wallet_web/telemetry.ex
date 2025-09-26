@@ -79,7 +79,14 @@ defmodule ExWalletWeb.Telemetry do
       summary("vm.memory.total", unit: {:byte, :kilobyte}),
       summary("vm.total_run_queue_lengths.total"),
       summary("vm.total_run_queue_lengths.cpu"),
-      summary("vm.total_run_queue_lengths.io")
+      summary("vm.total_run_queue_lengths.io"),
+
+      # Wallet Metrics
+      last_value("ex_wallet.wallet.stats.count"),
+      summary("ex_wallet.wallet.balance_load.all.duration"),
+      summary("ex_wallet.wallet.balance_load.btc.duration"),
+      summary("ex_wallet.wallet.balance_load.eth.duration"),
+      summary("ex_wallet.wallet.balance_load.sol.duration")
     ]
   end
 

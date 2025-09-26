@@ -22,36 +22,33 @@ defmodule ExWalletWeb.WalletLive.Form do
           label="Mnemonic"
           phx-blur="validate_mnemonic"
         />
-        <.button type="button" phx-click="generate_mnemonic" phx-value-long="false">
-          Generate Mnemonic (12 words)
+        <.button type="button" phx-click="generate_mnemonic" phx-value-words="12">
+          Rand Mnemonic (12 words)
         </.button>
-        <.button type="button" phx-click="generate_mnemonic" phx-value-long="true">
-          Generate Mnemonic (24 words)
+        <.button type="button" phx-click="generate_mnemonic" phx-value-words="24">
+          Rand Mnemonic (24 words)
         </.button>
 
         <%!-- <.button type="button" phx-click="reload_addresses" phx-value-long="true">
           Reload Addresses
         </.button> --%>
 
-        <.input field={@form[:eth_address]} type="text" label="Ethereum address" readonly />
-        <.input field={@form[:sol_address]} type="text" label="Solana address" readonly />
+        <.input field={@form[:eth_address]} type="text" label="Ethereum address" />
+        <.input field={@form[:sol_address]} type="text" label="Solana address" />
         <.input
           field={@form[:btc_legacy_address]}
           type="text"
           label="Bitcoin legacy address"
-          readonly
         />
         <.input
           field={@form[:btc_nested_segwit_address]}
           type="text"
           label="Bitcoin nested segwit address"
-          readonly
         />
         <.input
           field={@form[:btc_native_segwit_address]}
           type="text"
           label="Bitcoin native segwit address"
-          readonly
         />
         <footer>
           <.button phx-disable-with="Saving..." variant="primary">Save Wallet</.button>
@@ -101,12 +98,9 @@ defmodule ExWalletWeb.WalletLive.Form do
     save_wallet(socket, socket.assigns.live_action, wallet_params)
   end
 
-  def handle_event("generate_mnemonic", %{"long" => long} = _params, socket) do
-    mnemonic =
-      case long do
-        "true" -> Wallets.generate_mnemonic(true)
-        _ -> Wallets.generate_mnemonic(false)
-      end
+  def handle_event("generate_mnemonic", %{"words" => words} = _params, socket) do
+    {wi, _} = Integer.parse(words)
+    mnemonic = Wallets.generate_mnemonic(wi)
 
     form = socket.assigns.form
     changes = form.source.changes

@@ -70,8 +70,9 @@ defmodule ExWallet.MixProject do
       {:ethereumex, "~> 0.12.1"},
       {:ed25519, "~> 1.4"},
       {:b58, "~> 1.0"},
-      {:bitcoinlib, "~> 0.4.7"}
+      {:bitcoinlib, "~> 0.4.7"},
       # {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+      {:ecto_sqlite3_extras, "~> 1.2.0"}
     ]
   end
 
