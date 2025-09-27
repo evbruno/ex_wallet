@@ -21,9 +21,12 @@ defmodule ExWallet.MixProject do
   def application do
     [
       mod: {ExWallet.Application, []},
-      extra_applications: [:logger, :runtime_tools, :observer, :wx]
+      extra_applications: extra_applications(Mix.env())
     ]
   end
+
+  defp extra_applications(:prod), do: [:logger, :runtime_tools]
+  defp extra_applications(_), do: [:logger, :runtime_tools, :os_mon, :observer, :wx]
 
   def cli do
     [

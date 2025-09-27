@@ -83,10 +83,13 @@ defmodule ExWalletWeb.Telemetry do
 
       # Wallet Metrics
       last_value("ex_wallet.wallet.stats.count"),
-      counter("ex_wallet.wallet.balance_load.error.count", tags: [:provider]),
+      counter("ex_wallet.wallet.balance_load.btc.success.count", tags: [:provider]),
+      counter("ex_wallet.wallet.balance_load.btc.error.count", tags: [:provider]),
       summary("ex_wallet.wallet.balance_load.all.duration"),
       summary("ex_wallet.wallet.balance_load.btc.duration"),
       summary("ex_wallet.wallet.balance_load.eth.duration"),
+      counter("ex_wallet.wallet.balance_load.eth.success.count", tags: [:provider]),
+      counter("ex_wallet.wallet.balance_load.eth.error.count", tags: [:provider]),
       summary("ex_wallet.wallet.balance_load.sol.duration")
     ]
   end
