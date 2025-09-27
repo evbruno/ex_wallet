@@ -1,8 +1,11 @@
 import Config
 
 # Configure your database
+database_path =
+  System.get_env("DATABASE_PATH") || Path.expand("../ex_wallet_dev.db", __DIR__)
+
 config :ex_wallet, ExWallet.Repo,
-  database: Path.expand("../ex_wallet_dev.db", __DIR__),
+  database: database_path,
   pool_size: 5,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true
@@ -64,7 +67,10 @@ config :ex_wallet, ExWalletWeb.Endpoint,
 config :ex_wallet, dev_routes: true
 
 # Do not include metadata nor timestamps in development logs
-config :logger, :default_formatter, format: "[$level] $message\n"
+config :logger, :default_formatter,
+  # format: "[$level] $message\n",
+  format: "$time $metadata[$level] $message\n",
+  metadata: [:request_id, :mfa, :line]
 
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.

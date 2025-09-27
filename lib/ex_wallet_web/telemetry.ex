@@ -85,12 +85,20 @@ defmodule ExWalletWeb.Telemetry do
       last_value("ex_wallet.wallet.stats.count"),
       counter("ex_wallet.wallet.balance_load.btc.success.count", tags: [:provider]),
       counter("ex_wallet.wallet.balance_load.btc.error.count", tags: [:provider]),
-      summary("ex_wallet.wallet.balance_load.all.duration"),
-      summary("ex_wallet.wallet.balance_load.btc.duration"),
-      summary("ex_wallet.wallet.balance_load.eth.duration"),
+      summary("ex_wallet.wallet.balance_load.all.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary("ex_wallet.wallet.balance_load.btc.duration",
+        unit: {:native, :millisecond}
+      ),
+      summary("ex_wallet.wallet.balance_load.eth.duration",
+        unit: {:native, :millisecond}
+      ),
       counter("ex_wallet.wallet.balance_load.eth.success.count", tags: [:provider]),
       counter("ex_wallet.wallet.balance_load.eth.error.count", tags: [:provider]),
-      summary("ex_wallet.wallet.balance_load.sol.duration")
+      summary("ex_wallet.wallet.balance_load.sol.duration",
+        unit: {:native, :millisecond}
+      )
     ]
   end
 

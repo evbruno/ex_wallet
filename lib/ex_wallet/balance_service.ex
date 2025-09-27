@@ -74,6 +74,12 @@ defmodule ExWallet.BalanceService.Bitcoin do
 
     case balance_impl(address, provider) do
       {:ok, btc} ->
+        :telemetry.execute(
+          [:ex_wallet, :wallet, :balance_load, :btc, :success],
+          %{count: 1},
+          %{provider: provider}
+        )
+
         {:ok, btc}
 
       {:error, reason} ->
@@ -82,12 +88,12 @@ defmodule ExWallet.BalanceService.Bitcoin do
         )
 
         :telemetry.execute(
-          [:ex_wallet, :wallet, :balance_load, :error],
+          [:ex_wallet, :wallet, :balance_load, :btc, :error],
           %{count: 1},
           %{provider: provider}
         )
 
-        sleep_rand_time = :rand.uniform(500)
+        sleep_rand_time = :rand.uniform(1_000)
         Process.sleep(sleep_rand_time)
 
         balance_try(address, t - 1)
@@ -188,6 +194,19 @@ defmodule ExWallet.BalanceService.Bitcoin do
     Logger.debug("Fetching BTC balance from 3xpl-sandbox for address #{address}")
 
     url = "https://sandbox-api.3xpl.com/bitcoin/address/#{address}?data=balances"
+
+    xpl_api_req(url, "3xpl-sandbox")
+  end
+
+  def balance_impl(address, "3xpl-api") do
+    Logger.debug("Fetching BTC balance from 3xpl-api for address #{address}")
+    token = Application.fetch_env!(:ex_wallet, :api_key_3xpl)
+    url = "https://api.3xpl.com/bitcoin/address/#{address}?data=balances&token=#{token}"
+
+    xpl_api_req(url, "3xpl-api")
+  end
+
+  defp xpl_api_req(url, provider) do
     req = Finch.build(:get, url)
 
     Finch.request(req, ExWallet.Finch)
@@ -204,33 +223,8 @@ defmodule ExWallet.BalanceService.Bitcoin do
           {:ok, btc}
         else
           error ->
-            {:error, "Failed to decode 3xpl-sandbox response: #{inspect(error)}"}
+            {:error, "Failed to decode #{provider} response: #{inspect(error)}"}
         end
-
-      {_, reason} ->
-        {:error, "Failed to fetch Bitcoin balance: #{inspect(reason)}"}
-    end
-  end
-
-  def balance_impl(address, "3xpl-api") do
-    Logger.debug("Fetching BTC balance from 3xpl-api for address #{address}")
-    token = Application.fetch_env!(:ex_wallet, :api_key_3xpl)
-    url = "https://api.3xpl.com/bitcoin/address/#{address}?data=balances&token=#{token}"
-    req = Finch.build(:get, url)
-
-    Finch.request(req, ExWallet.Finch)
-    |> case do
-      {:ok, %Finch.Response{status: 200, body: body}} ->
-        {:ok,
-         %{
-           "data" => %{
-             "balances" => %{"bitcoin-main" => %{"bitcoin" => %{"balance" => satoshis}}}
-           }
-         }} = Jason.decode(body)
-
-        satoshis = String.to_integer(satoshis)
-        btc = satoshis / 1.0e8
-        {:ok, btc}
 
       {_, reason} ->
         {:error, "Failed to fetch Bitcoin balance: #{inspect(reason)}"}
@@ -283,6 +277,12 @@ defmodule ExWallet.BalanceService.Ethereum do
 
     case balance_impl(address, provider) do
       {:ok, eth} ->
+        :telemetry.execute(
+          [:ex_wallet, :wallet, :balance_load, :eth, :success],
+          %{count: 1},
+          %{provider: provider}
+        )
+
         {:ok, eth}
 
       {:error, reason} ->
@@ -290,7 +290,15 @@ defmodule ExWallet.BalanceService.Ethereum do
           "ETH provider #{provider} failed: #{inspect(reason)}. Trying next provider..."
         )
 
-        Process.sleep(250)
+        :telemetry.execute(
+          [:ex_wallet, :wallet, :balance_load, :eth, :error],
+          %{count: 1},
+          %{provider: provider}
+        )
+
+        sleep_rand_time = :rand.uniform(500)
+        Process.sleep(sleep_rand_time)
+
         balance_try(address, t - 1)
     end
   end
