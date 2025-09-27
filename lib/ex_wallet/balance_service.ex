@@ -19,7 +19,21 @@ defmodule ExWallet.BalanceService.Bitcoin do
   alias ExWallet.Cycler
 
   def init_providers do
-    btc_providers = ["blockcypher", "blockchain", "blockstream", "mempool"]
+    btc_providers = [
+      "blockcypher",
+      "blockchain",
+      "blockstream",
+      "mempool",
+      "mempool-de",
+      "3xpl-sandbox"
+    ]
+
+    btc_providers =
+      if Application.get_env(:ex_wallet, :api_key_3xpl) do
+        btc_providers ++ ["3xpl-api"]
+      else
+        btc_providers
+      end
 
     case Cycler.start_link(:btc, btc_providers) do
       {:ok, _pid} ->
@@ -35,7 +49,7 @@ defmodule ExWallet.BalanceService.Bitcoin do
     end
   end
 
-  @max_cycles 8
+  @max_cycles 12
 
   defp next_provider, do: Cycler.next(:btc)
 
@@ -67,7 +81,15 @@ defmodule ExWallet.BalanceService.Bitcoin do
           "BTC provider #{provider} failed: #{inspect(reason)}. Trying next provider..."
         )
 
-        Process.sleep(500)
+        :telemetry.execute(
+          [:ex_wallet, :wallet, :balance_load, :error],
+          %{count: 1},
+          %{provider: provider}
+        )
+
+        sleep_rand_time = :rand.uniform(500)
+        Process.sleep(sleep_rand_time)
+
         balance_try(address, t - 1)
     end
   end
@@ -143,6 +165,77 @@ defmodule ExWallet.BalanceService.Bitcoin do
         {:error, "Failed to fetch Bitcoin balance: #{inspect(reason)}"}
     end
   end
+
+  def balance_impl(address, "mempool-de") do
+    Logger.debug("Fetching BTC balance from Mempool for address #{address}")
+
+    url = "https://mempool.emzy.de/api/address/#{address}"
+    req = Finch.build(:get, url)
+
+    Finch.request(req, ExWallet.Finch)
+    |> case do
+      {:ok, %Finch.Response{status: 200, body: body}} ->
+        {:ok, %{"chain_stats" => %{"funded_txo_sum" => satoshis}}} = Jason.decode(body)
+        btc = satoshis / 1.0e8
+        {:ok, btc}
+
+      {_, reason} ->
+        {:error, "Failed to fetch Bitcoin balance: #{inspect(reason)}"}
+    end
+  end
+
+  def balance_impl(address, "3xpl-sandbox") do
+    Logger.debug("Fetching BTC balance from 3xpl-sandbox for address #{address}")
+
+    url = "https://sandbox-api.3xpl.com/bitcoin/address/#{address}?data=balances"
+    req = Finch.build(:get, url)
+
+    Finch.request(req, ExWallet.Finch)
+    |> case do
+      {:ok, %Finch.Response{status: 200, body: body}} ->
+        with {:ok,
+              %{
+                "data" => %{
+                  "balances" => %{"bitcoin-main" => %{"bitcoin" => %{"balance" => satoshis}}}
+                }
+              }} <- Jason.decode(body) do
+          satoshis = String.to_integer(satoshis)
+          btc = satoshis / 1.0e8
+          {:ok, btc}
+        else
+          error ->
+            {:error, "Failed to decode 3xpl-sandbox response: #{inspect(error)}"}
+        end
+
+      {_, reason} ->
+        {:error, "Failed to fetch Bitcoin balance: #{inspect(reason)}"}
+    end
+  end
+
+  def balance_impl(address, "3xpl-api") do
+    Logger.debug("Fetching BTC balance from 3xpl-api for address #{address}")
+    token = Application.fetch_env!(:ex_wallet, :api_key_3xpl)
+    url = "https://api.3xpl.com/bitcoin/address/#{address}?data=balances&token=#{token}"
+    req = Finch.build(:get, url)
+
+    Finch.request(req, ExWallet.Finch)
+    |> case do
+      {:ok, %Finch.Response{status: 200, body: body}} ->
+        {:ok,
+         %{
+           "data" => %{
+             "balances" => %{"bitcoin-main" => %{"bitcoin" => %{"balance" => satoshis}}}
+           }
+         }} = Jason.decode(body)
+
+        satoshis = String.to_integer(satoshis)
+        btc = satoshis / 1.0e8
+        {:ok, btc}
+
+      {_, reason} ->
+        {:error, "Failed to fetch Bitcoin balance: #{inspect(reason)}"}
+    end
+  end
 end
 
 defmodule ExWallet.BalanceService.Ethereum do
@@ -150,7 +243,7 @@ defmodule ExWallet.BalanceService.Ethereum do
   alias ExWallet.Cycler
 
   def init_providers do
-    eth_providers = ["ethereumex", "ethereum-rpc", "blockscout"]
+    eth_providers = ["ethereumex", "ethereum-rpc", "blockscout", "blockcypher"]
 
     case Cycler.start_link(:eth, eth_providers) do
       {:ok, _pid} ->
@@ -179,6 +272,12 @@ defmodule ExWallet.BalanceService.Ethereum do
     )
   end
 
+  # let's not fail for now
+  defp balance_try(_address, t) when t <= 0 do
+    Logger.debug("All ETH providers failed")
+    {:ok, nil}
+  end
+
   defp balance_try(address, t) do
     provider = next_provider()
 
@@ -196,7 +295,25 @@ defmodule ExWallet.BalanceService.Ethereum do
     end
   end
 
-  defp balance_impl(address, "ethereumex") do
+  def balance_impl(address, "blockcypher") do
+    Logger.debug("Fetching ETH balance from BlockCypher for address #{address}")
+
+    url = "https://api.blockcypher.com/v1/eth/main/addrs/#{address}/balance"
+    req = Finch.build(:get, url)
+
+    Finch.request(req, ExWallet.Finch)
+    |> case do
+      {:ok, %Finch.Response{status: 200, body: body}} ->
+        {:ok, %{"final_balance" => bal}} = Jason.decode(body)
+        eth = bal / 1.0e18
+        {:ok, eth}
+
+      {_, reason} ->
+        {:error, "Failed to fetch Ethereum balance: #{inspect(reason)}"}
+    end
+  end
+
+  def balance_impl(address, "ethereumex") do
     Logger.debug("Fetching ETH balance from Ethereumex for address #{address}")
 
     case Ethereumex.HttpClient.eth_get_balance(address, "latest") do
@@ -210,7 +327,7 @@ defmodule ExWallet.BalanceService.Ethereum do
     end
   end
 
-  defp balance_impl(address, "ethereum-rpc") do
+  def balance_impl(address, "ethereum-rpc") do
     Logger.debug("Fetching ETH balance from Ethereum RPC for address #{address}")
 
     url = "https://ethereum-rpc.publicnode.com"
@@ -240,7 +357,7 @@ defmodule ExWallet.BalanceService.Ethereum do
     end
   end
 
-  defp balance_impl(address, "blockscout") do
+  def balance_impl(address, "blockscout") do
     Logger.debug("Fetching ETH balance from Blockscout for address #{address}")
 
     url = "https://eth.blockscout.com/api?module=account&action=balance&address=#{address}"

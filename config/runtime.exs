@@ -115,3 +115,10 @@ if config_env() == :prod do
   #
   # See https://hexdocs.pm/swoosh/Swoosh.html#module-installation for details.
 end
+
+if System.get_env("API_KEY_3XPL") do
+  config :ex_wallet,
+    api_key_3xpl: System.get_env("API_KEY_3XPL")
+
+  IO.puts("3xpl API key configured")
+end
