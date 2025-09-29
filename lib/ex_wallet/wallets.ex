@@ -212,26 +212,26 @@ defmodule ExWallet.Wallets do
     |> Map.put(:btc_native_segwit_address, bitcoin_address_native_segwit(mnemonic))
   end
 
-  defp ethereum_address(mnemonic) do
+  def ethereum_address(mnemonic) do
     # AddressService.ethereum_address(mnemonic)
     ExWallet.Ethereum.addresss_from_mnemonic(mnemonic).address
   end
 
-  defp solana_address(mnemonic) do
+  def solana_address(mnemonic) do
     # AddressService.solana_address(mnemonic)
     ExWallet.Solana.address_from_mnemonic(mnemonic).address
   end
 
-  defp bitcoin_address_legacy(mnemonic) do
+  def bitcoin_address_legacy(mnemonic) do
     # AddressService.bitcoin_address_legacy(mnemonic)
     ExWallet.Bitcoin.Legacy.address_from_mnemonic(mnemonic).address
   end
 
-  defp bitcoin_address_nested_segwit(mnemonic) do
+  def bitcoin_address_nested_segwit(mnemonic) do
     ExWallet.Bitcoin.NestedSegwit.address_from_mnemonic(mnemonic).address
   end
 
-  defp bitcoin_address_native_segwit(mnemonic) do
+  def bitcoin_address_native_segwit(mnemonic) do
     ExWallet.Bitcoin.NativeSegwit.address_from_mnemonic(mnemonic).address
   end
 

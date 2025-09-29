@@ -119,6 +119,9 @@ end
 if System.get_env("API_KEY_3XPL") do
   config :ex_wallet,
     api_key_3xpl: System.get_env("API_KEY_3XPL")
+end
 
-  IO.puts("3xpl API key configured")
+if System.get_env("BLOCKONOMICS_API_KEY") do
+  config :ex_wallet,
+    blockonomics_api_key: System.get_env("BLOCKONOMICS_API_KEY")
 end
