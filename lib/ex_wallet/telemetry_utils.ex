@@ -13,9 +13,6 @@ defmodule ExWallet.TelemetryUtils do
   defp run_measurement(metrics, function) do
     start_time = System.monotonic_time()
 
-    atoms = metrics |> Enum.map(&atomize/1)
-    evt_name = [:ex_wallet, :wallet] ++ atoms
-
     try do
       function.()
     catch
@@ -28,13 +25,12 @@ defmodule ExWallet.TelemetryUtils do
       result ->
         duration = System.monotonic_time() - start_time
 
+        atoms = metrics |> Enum.map(&atomize/1)
+        evt_name = [:ex_wallet, :wallet] ++ atoms
+
         Logger.debug("Telemetry event: #{inspect(evt_name)} - #{duration} ms")
 
-        :telemetry.execute(
-          evt_name,
-          %{duration: duration},
-          %{}
-        )
+        :telemetry.execute(evt_name, %{duration: duration}, %{})
 
         result
     end
